@@ -20,23 +20,24 @@ public class ClientHandler implements Runnable {
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
                 DataInputStream in = new DataInputStream(socket.getInputStream())
         ) {
-            while (true){
+            while (true) {
                 String command = in.readUTF();
 
                 //логируем команду
                 System.out.println(command);
 
-                if ("upload".equalsIgnoreCase(command)){
+                if ("upload".equalsIgnoreCase(command)) {
                     upload(out, in);
                 }
 
-                if ("download".equalsIgnoreCase(command)){
-                    //todo: домашнее задание
+                if ("download".equalsIgnoreCase(command)) {
+                    //todo: домашнее задание 13.05.2021
+                    download(out, in);
                 }
 
 
                 //некий произвольный выход по команде "exit"
-                if ("exit".equals(command)){
+                if ("exit".equals(command)) {
                     System.out.printf("Client %s disconnected correctly \n", socket.getInetAddress());
 
                     //Отправляем обратно клиенту тикет что мы закрываем коннект
@@ -53,37 +54,70 @@ public class ClientHandler implements Runnable {
 
             }
 
-        }catch (SocketException socketException){
+        } catch (SocketException socketException) {
             System.out.printf("Client %s disconnected \n", socket.getInetAddress());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+    }
 
 
-        catch (IOException e) {
+    private void download(DataOutputStream out, DataInputStream in) {
+
+        try {
+            var filename = in.readUTF();
+
+            File file = new File("server/" + filename);
+            if (!file.exists()) {
+                throw new FileNotFoundException();
+            }
+
+            var fileLength = file.length();
+            FileInputStream fis = new FileInputStream(file);
+
+            out.writeUTF("download");
+            out.writeUTF(filename);
+            out.writeLong(fileLength);
+
+            int read = 0;
+            byte[] buffer = new byte[8*1024];
+            while ((read = fis.read(buffer)) != -1){
+                out.write(buffer, 0, read);
+            }
+            out.flush();
+            var downloadStatus = in.readUTF();
+            System.out.println("Download status " +downloadStatus);
+
+
+        } catch (FileNotFoundException e) {
+
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private void upload(DataOutputStream out, DataInputStream in) throws IOException {
-        try{
-            File file = new File("server/"+ in.readUTF()); // читаем имя файла
-            if (!file.exists()){
+        try {
+            File file = new File("server/" + in.readUTF()); // читаем имя файла
+            if (!file.exists()) {
                 file.createNewFile();
-                file.createNewFile();
-
             }
             FileOutputStream fos = new FileOutputStream(file);
             long size = in.readLong();
             byte[] buffer = new byte[8 * 1024];
-            for (int i = 0; i < ((size+ (8 * 1024  - 1)) / (8*1024) ); i++) {
+            System.out.println("Загружаю файл");
+            for (int i = 0; i < ((size + (8 * 1024 - 1)) / (8 * 1024)); i++) {
                 int read = in.read(buffer);
                 fos.write(buffer, 0, read);
 
             }
             fos.close();
+            System.out.println("файл загружен");
             out.writeUTF("OK");
-        }catch (Exception e){
-           out.writeUTF("WRONG");
-           e.printStackTrace();
+        } catch (Exception e) {
+            out.writeUTF("WRONG");
+            e.printStackTrace();
         }
     }
 
@@ -98,14 +132,4 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public static void main(String[] args) {
-     //   File file = new File("\\server\\"+"qwe.txt");
-        File file = new File("server/1.png");
-        try {
-
-            file.createNewFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
